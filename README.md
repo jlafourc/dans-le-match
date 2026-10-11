@@ -52,7 +52,7 @@ Une réussite rapporte 3 étoiles au premier essai, 2 au deuxième, 1 ensuite. S
 - Dans les deux scènes avec contact, le bras conserve des longueurs fixes avec un coude articulé ; la main touche le haut et le côté du ballon, à distance du torse, avant une légère déviation vers le bas et sur le côté. Le changement de direction est vérifié depuis la caméra d'arbitre, ainsi que la continuité de la trajectoire. La passe directe n'a pas de déviation ajoutée.
 - Appuis : préparation du ballon avant la passe, pas d’approche du défenseur, pieds ancrés pendant chaque appui et jambes articulées à longueurs fixes. Le défenseur est stable avant le toucher. Une transformation rigide commune place ballon, joueurs et caméra dans les nouvelles zones ; les contacts restent identiques.
 - Les défenseurs font face à la trajectoire ; les têtes suivent le ballon avec une amplitude limitée du cou. Le regard et le geste utilisent la même chronologie en lecture normale et au ralenti.
-- Gestuelle : animations SVG procédurales avec mains et bras articulés, démonstration séquentielle, arrêt de la boucle au changement d’écran, poses statiques pour la préférence de mouvements réduits. Sauvegarde séparée des validations sous `dans-le-match-signals-v1`.
+- Gestuelle : animations SVG procédurales avec mains et bras articulés, démonstration avec transition continue entre les signaux, poignets et doigts interpolés, rendu synchronisé avec le navigateur, arrêt de la boucle au changement d’écran, poses statiques pour la préférence de mouvements réduits. Sauvegarde séparée des validations sous `dans-le-match-signals-v1`.
 - Polices servies localement. Pas d'API distante nécessaire pour jouer.
 
 ## Sources et limites
@@ -75,3 +75,5 @@ Les personnages et gestes sont une première mise en scène simplifiée. Le prot
 Les plans du prototype sont dans `docs/plans/`.
 
 - Variété des défis 4–5 : réception avec pied sur la ligne, deux touchers successifs, contacts des doigts et absence de contact prématuré vérifiés ; 47 tests passent. Vérification visuelle mobile des deux contacts et du zoom sur les appuis.
+
+- Fluidité des gestes : 49 tests passent, transitions gauche/droite et reprise continues ; démonstration à environ 60 images/s dans Chrome au format mobile 390 px, poses statiques du mode mouvements réduits vérifiées.

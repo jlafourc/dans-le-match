@@ -57,8 +57,42 @@ export function sampleSignalPose(kind, progress = 1) {
   raised.x += Math.sin(t * Math.PI) * 30;
   return { left, right: raised, active: 'right', hand: kind === 'stop-foul' ? 'fist' : 'open', rotation: 180 * (1 - t) };
 }
+function handsForPose(pose) {
+  return Object.fromEntries(['left', 'right'].map(side => [side, {
+    rotation: pose.active === side ? pose.rotation : 180,
+    pointAmount: pose.active === side && pose.hand === 'point' ? 1 : 0,
+  }]));
+}
+function blendSignalPoses(start, end, amount) {
+  const from = handsForPose(start), to = handsForPose(end);
+  return { ...end, left: blend(start.left, end.left, amount), right: blend(start.right, end.right, amount),
+    hands: Object.fromEntries(['left', 'right'].map(side => [side, {
+      rotation: from[side].rotation + (to[side].rotation - from[side].rotation) * amount,
+      pointAmount: from[side].pointAmount + (to[side].pointAmount - from[side].pointAmount) * amount,
+    }])),
+  };
+}
 export function sampleSignalSequence(time, direction) {
-  const t = ((time % 6) + 6) % 6;
-  if (t < 2.8) return { kind: 'stop-clock', progress: smoothSignal(t / .6) * (1 - smoothSignal((t - 2.2) / .6)), step: 0 };
-  return { kind: direction, progress: smoothSignal((t - 2.8) / .6) * (1 - smoothSignal((t - 5.4) / .6)), step: 1 };
+  const t = ((time % 6.8) + 6.8) % 6.8;
+  const stop = sampleSignalPose('stop-clock'), pointing = sampleSignalPose(direction);
+  let pose;
+  if (t < 2.1) {
+    pose = sampleSignalPose('stop-clock', smoothSignal(t / .75));
+    pose.hands = handsForPose(pose);
+  } else if (t < 3.05) {
+    const amount = smoothSignal((t - 2.1) / .95);
+    pose = blendSignalPoses(stop, pointing, amount);
+    if (direction === 'direction-right') {
+      // Sweep the extended arm from above the head to the side of the body.
+      const startAngle = Math.atan2(stop.right.y - 111, stop.right.x - 145);
+      const angle = startAngle * (1 - amount), radius = Math.hypot(stop.right.x - 145, stop.right.y - 111) * (1 - amount) + 65 * amount;
+      pose.right = { x: 145 + Math.cos(angle) * radius, y: 111 + Math.sin(angle) * radius };
+    }
+  } else {
+    const amount = 1 - smoothSignal((t - 5.35) / .85);
+    pose = sampleSignalPose(direction, amount);
+    pose.hands = handsForPose(pose);
+    pose.hands[pose.active].pointAmount = amount;
+  }
+  return { kind: t < 2.1 ? 'stop-clock' : direction, step: t < 2.1 ? 0 : 1, pose };
 }

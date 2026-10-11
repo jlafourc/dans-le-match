@@ -16,21 +16,29 @@ function elbow(shoulder, end, side) {
   const height = Math.sqrt(Math.max(0, 34 ** 2 - along ** 2));
   return { x: shoulder.x + dx * along - dy * height * side, y: shoulder.y + dy * along + dx * height * side };
 }
-function hand(point, mode, rotation) {
+function hand(point, mode, rotation, pointAmount = mode === 'point' ? 1 : 0) {
   let fingers;
   if (mode === 'fist') fingers = '<rect x="-6.5" y="-13" width="13" height="11" rx="4"/><path d="M-4-10h8M-2-13v4M2-13v4" fill="none" stroke="#986243" stroke-width="1"/>';
-  else if (mode === 'point') fingers = '<rect x="-5" y="-10" width="10" height="9" rx="3"/><path d="M-3-8v-14M0-8v-13M4-5l3-5" fill="none" stroke-width="3" stroke-linecap="round"/>';
-  else fingers = '<rect x="-5.5" y="-12" width="11" height="12" rx="3"/><path d="M-4-10l-1-10M-1-11v-12M2-11l1-11M5-10l2-8M-4-4l-7-6" fill="none" stroke-width="2.8" stroke-linecap="round"/>';
+  else {
+    const mix = (a, b) => (a + (b - a) * pointAmount).toFixed(2);
+    const paths = [
+      `M-4-10L${mix(-5, -4)} ${mix(-20, -9)}`,
+      'M-1-11v-12',
+      `M2-11L${mix(3, 3)} ${mix(-22, -9)}`,
+      `M5-10L${mix(7, 5)} ${mix(-18, -7)}`,
+      `M-4-4L${mix(-11, -7)} ${mix(-10, -8)}`,
+    ].join('');
+    fingers = `<rect x="-5.5" y="-12" width="11" height="12" rx="3"/><path d="${paths}" fill="none" stroke-width="2.8" stroke-linecap="round"/>`;
+  }
   return `<g transform="translate(${point.x} ${point.y}) rotate(${rotation})" fill="${skin}" stroke="${skin}">${fingers}</g>`;
 }
-export function refereeSvg(kind, progress = 1, crop = false) {
-  const pose = sampleSignalPose(kind, progress);
+export function refereeSvg(kind, progress = 1, crop = false, pose = sampleSignalPose(kind, progress)) {
   const arms = ['left', 'right'].map((side, i) => {
     const shoulder = { x: i ? 145 : 95, y: 111 }, end = pose[side];
     const joint = elbow(shoulder, end, i ? 1 : -1);
     const sleeve = { x: shoulder.x + (joint.x - shoulder.x) * .35, y: shoulder.y + (joint.y - shoulder.y) * .35 };
     return line(shoulder, joint, skin, 10) + line(joint, end, skin, 8) + line(shoulder, sleeve, '#657478', 14)
-      + hand(end, pose.active === side ? pose.hand : 'open', pose.active === side ? pose.rotation : 180);
+      + hand(end, pose.active === side ? pose.hand : 'open', pose.hands?.[side].rotation ?? (pose.active === side ? pose.rotation : 180), pose.hands?.[side].pointAmount);
   }).join('');
   return `<svg class="referee-svg" viewBox="${crop ? '0 10 240 185' : '0 0 240 280'}" role="img" aria-label="${descriptions[kind]}">
     <ellipse cx="120" cy="260" rx="40" ry="6" fill="#26383c12"/>
@@ -61,21 +69,20 @@ export function mountSignalAnimations(root) {
     }
     return () => {};
   }
-  let frame, stopped = false, last = 0;
+  let frame, stopped = false;
   const start = performance.now();
   function draw(now) {
     if (stopped) return;
-    if (now - last > 50) {
-      last = now; const age = (now - start) / 1000;
-      const t = age % 5.5;
-      const amount = smoothSignal(t / .65) * (1 - smoothSignal((t - 4.85) / .65));
-      for (const figure of figures) figure.innerHTML = refereeSvg(figure.dataset.signal, amount, figure.dataset.signalCrop === 'true');
-      if (demo) {
-        const pose = sampleSignalSequence(age, demo.dataset.signalDemo);
-        demo.innerHTML = refereeSvg(pose.kind, pose.progress);
-        const label = root.querySelector('.demo-step');
-        if (label) label.textContent = pose.step ? '2. Indiquer la direction du jeu' : '1. Arrêter le chronomètre · Paume ouverte';
-      }
+    const age = (now - start) / 1000;
+    const t = age % 5.5;
+    const amount = smoothSignal(t / .65) * (1 - smoothSignal((t - 4.85) / .65));
+    for (const figure of figures) figure.innerHTML = refereeSvg(figure.dataset.signal, amount, figure.dataset.signalCrop === 'true');
+    if (demo) {
+      const pose = sampleSignalSequence(age, demo.dataset.signalDemo);
+      demo.innerHTML = refereeSvg(pose.kind, 1, false, pose.pose);
+      const label = root.querySelector('.demo-step');
+      const text = pose.step ? '2. Indiquer la direction du jeu' : '1. Arrêter le chronomètre · Paume ouverte';
+      if (label && label.textContent !== text) label.textContent = text;
     }
     frame = requestAnimationFrame(draw);
   }

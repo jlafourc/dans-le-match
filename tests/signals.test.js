@@ -66,9 +66,43 @@ test('les bras gardent une portée humaine pendant les animations et la séquenc
     let previous;
     for (let t = 0; t < 12; t += .01) {
       const sequence = sampleSignalSequence(t, direction);
-      const pose = sampleSignalPose(sequence.kind, sequence.progress);
+      const pose = sequence.pose ?? sampleSignalPose(sequence.kind, sequence.progress);
       if (previous) for (const side of ['left', 'right']) assert.ok(Math.hypot(pose[side].x - previous[side].x, pose[side].y - previous[side].y) < 5);
       previous = pose;
     }
+  }
+});
+
+
+test('la démonstration relie les signaux sans revenir au repos entre eux', () => {
+  for (let time = 2.1; time <= 3.05; time += .01) {
+    const sequence = sampleSignalSequence(time, 'direction-right');
+    const pose = sequence.pose ?? sampleSignalPose(sequence.kind, sequence.progress);
+    assert.ok(pose.right.y <= 112, `Le bras redescend entre les signaux à ${time}`);
+    assert.ok(Math.hypot(pose.right.x - 145, pose.right.y - 111) > 60, 'Le bras reste déployé pendant la transition');
+  }
+});
+
+test('poignets et doigts changent progressivement entre les signaux et à la reprise', () => {
+  for (const direction of ['direction-left', 'direction-right']) {
+    let previous;
+    for (let time = 0; time < 14; time += 1 / 120) {
+      const { pose } = sampleSignalSequence(time, direction);
+      assert.ok(pose?.hands, 'La séquence décrit les deux mains pendant la transition');
+      for (const side of ['left', 'right']) {
+        const reach = Math.hypot(pose[side].x - (side === 'left' ? 95 : 145), pose[side].y - 111);
+        assert.ok(reach > 2 && reach < 66, 'La transition conserve la portée des bras');
+        if (previous) {
+          assert.ok(Math.abs(pose.hands[side].rotation - previous.hands[side].rotation) < 6, 'Le poignet ne saute pas');
+          assert.ok(Math.abs(pose.hands[side].pointAmount - previous.hands[side].pointAmount) < .04, 'Les doigts se replient progressivement');
+        }
+      }
+      previous = pose;
+    }
+    assert.ok(sampleSignalSequence(1.4, direction).pose.right.y < 55);
+    const final = sampleSignalSequence(4, direction).pose;
+    const side = direction === 'direction-left' ? 'left' : 'right';
+    assert.equal(final[side].y, 111);
+    assert.equal(final.hands[side].pointAmount, 1);
   }
 });
