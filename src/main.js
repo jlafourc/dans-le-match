@@ -6,7 +6,7 @@ import '@fontsource/dm-sans/latin-400.css';
 import '@fontsource/dm-sans/latin-500.css';
 import '@fontsource/dm-sans/latin-600.css';
 import '@fontsource/dm-sans/latin-700.css';
-import { signalSteps, createSignalSession, chooseSignal, advanceSignal, readSignalProgress, earnedSignalBadge, signalSource } from './signals.js';
+import { signalSteps, createSignalSession, chooseSignal, advanceSignal, readSignalProgress, earnedSignalBadge, signalSource, scheduleSignalAdvance } from './signals.js';
 import { signalFigure, refereeSvg, mountSignalAnimations } from './referee-signals.js';
 import { Court } from './court.js';
 import { scenarios, initiationScenarios, ruleSource } from './scenarios.js';
@@ -39,7 +39,7 @@ let storageAvailable = true;
 try { progress = readProgress(localStorage.getItem('dans-le-match-progress-v1')); } catch { storageAvailable = false; }
 let signalProgress = {};
 try { signalProgress = readSignalProgress(localStorage.getItem('dans-le-match-signals-v1')); } catch { storageAvailable = false; }
-let signalSession = createSignalSession(), stopSignalAnimations = () => {};
+let signalSession = createSignalSession(), stopSignalAnimations = () => {}, cancelSignalAdvance = () => {};
 let screen = 'home', activeIndex = 0, phase = 'ready', attempts = 0, selected = null, resultStars = 0;
 let court = null, replaying = false, paused = false, reviewFrame = null;
 const app = document.querySelector('#app');
@@ -97,7 +97,7 @@ function signalGame() {
   return `<main class="main signals-game"><div class="game-heading"><button class="back-button" data-action="decision-review">${icon('back')} Revoir la décision</button><span>CHAPITRE 01 <i>/</i> LES GESTES</span><span class="challenge-count">${activeIndex + 1}<span> / ${scenarios.length}</span></span></div>
     <div class="signals-heading"><p class="eyebrow small">${demo ? 'À TOI DE LE REPRODUIRE' : `GESTE ${signalSession.step + 1} / 2`}</p><h1>${demo ? 'Ta décision devient un signal.' : step.title}</h1><div class="step-indicator"><span class="done">1. Observe</span><i></i><span class="done">2. Décide</span><i></i><span class="current">3. Signale</span></div></div>
     ${demo ? `<div class="signals-demo-layout"><section class="demo-card"><span class="figure-view">DÉMONSTRATION · VUE DE FACE</span><div class="referee-demo" data-signal-demo="${direction}">${refereeSvg('stop-clock')}</div><p class="demo-step" aria-live="off">1. Arrêter le chronomètre · Paume ouverte</p></section><section class="demo-explanation"><div class="feedback correct"><span class="feedback-icon">${icon('check')}</span><div><p>DEUX GESTES VALIDÉS</p><h2>La bonne décision, le bon signal.</h2></div></div>${directionDiagram()}<ol><li><strong>Siffle et arrête le chronomètre.</strong> Un bras levé, paume ouverte.</li><li><strong>Indique la direction du jeu.</strong> Pointe vers le panier attaqué par les ${s.answer === 'blue' ? 'bleus' : 'rouges'}, avec le bras parallèle aux lignes de touche.</li></ol><div class="takeaway">${icon('whistle')}<p>Pose ton téléphone et essaie de faire les deux gestes dans cet ordre. Regarde l’action et reste stable sur tes appuis.</p></div><p class="question-help">Ici, tu apprends à reconnaître les gestes. Leur exécution pourra être travaillée avec un formateur.</p><button class="button secondary full" data-action="replay-signals">${icon('replay')} Revoir la démonstration</button><button class="button primary full next-button" data-action="${activeIndex === scenarios.length - 1 ? 'finish' : 'next'}">${activeIndex === scenarios.length - 1 ? 'Découvrir mes récompenses' : 'Défi suivant'}${icon('arrow')}</button></section></div>` : `<section class="signal-question"><p class="scene-cue">${step.help}</p>${signalSession.step === 1 ? directionDiagram() : ''}<p class="figure-view">ANIMATIONS VUES DE FACE · CHOISIS UN GESTE</p><div class="signal-choices">${choices.map((choice, i) => `<button class="signal-option ${signalSession.choice === choice.id ? signalSession.correct ? 'correct' : 'incorrect' : ''}" data-action="choose-signal" data-signal-choice="${choice.id}" ${signalSession.choice ? 'disabled' : ''}><span class="signal-letter">${String.fromCharCode(65 + i)}</span>${signalFigure(choice.id)}<span class="signal-option-label">${choice.label}</span>${signalSession.choice === choice.id ? icon(signalSession.correct ? 'check' : 'eye') : ''}</button>`).join('')}</div>
-    ${signalSession.choice ? `<div class="signal-feedback ${signalSession.correct ? 'correct' : 'incorrect'}" role="status"><h2>${signalSession.correct ? 'C’est le bon geste.' : 'Regarde ce qui change.'}</h2><p>${step.explanation}</p><button class="button primary full" data-action="advance-signal">${signalSession.correct ? signalSession.step ? 'Voir les deux gestes ensemble' : 'Passer à la direction du jeu' : 'Essayer à nouveau'}${icon(signalSession.correct ? 'arrow' : 'replay')}</button></div>` : '<p class="learning-note">Une erreur permet de comprendre et de réessayer. Tes étoiles de décision sont conservées.</p>'}</section>`}
+    ${signalSession.choice ? signalSession.correct ? `<div class="signal-feedback correct" role="status"><h2>${icon('check')} C’est le bon geste.</h2><p>${signalSession.step ? 'Les deux gestes sont validés.' : 'À toi d’indiquer la direction du jeu…'}</p></div>` : `<div class="signal-feedback incorrect" role="status"><h2>Regarde ce qui change.</h2><p>${step.explanation}</p><button class="button primary full" data-action="advance-signal">Essayer à nouveau${icon('replay')}</button></div>` : '<p class="learning-note">Une erreur permet de comprendre et de réessayer. Tes étoiles de décision sont conservées.</p>'}</section>`}
     <a class="rule-reference" href="${signalSource.url}" target="_blank" rel="noopener noreferrer">${icon('book')} ${signalSource.title} ${icon('arrow')}</a></main>`;
 }
 
@@ -110,6 +110,7 @@ function finish() {
 }
 
 function render({ focus = false } = {}) {
+  cancelSignalAdvance();
   stopSignalAnimations();
   screenRoot.innerHTML = `${header()}${screen === 'home' ? home() : screen === 'game' ? game() : finish()}<footer class="footer"><span>DANS LE MATCH<span class="brand-dot">.</span></span><p>Le bon réflexe, ça s’apprend.</p><button data-action="sources">Règles & sources ${icon('book')}</button></footer>`;
   const slot = document.querySelector('#stage-slot');
@@ -124,6 +125,12 @@ function render({ focus = false } = {}) {
   if (screen === 'home' && court) court.setScenario(scenarios[0]);
   updateStage(); court?.resize();
   stopSignalAnimations = mountSignalAnimations(screenRoot);
+  if (screen === 'game' && phase === 'signals') {
+    const session = signalSession;
+    cancelSignalAdvance = scheduleSignalAdvance(session, () => {
+      if (screen === 'game' && phase === 'signals' && signalSession === session) advanceSignalGame();
+    });
+  }
   if (focus) { const heading = document.querySelector('main h1'); heading?.setAttribute('tabindex', '-1'); heading?.focus({ preventScroll: true }); }
 }
 
@@ -190,6 +197,15 @@ function openDialog(kind) {
   dialog.showModal();
 }
 
+function advanceSignalGame() {
+  signalSession = advanceSignal(signalSession, scenarios[activeIndex]);
+  if (signalSession.done) {
+    phase = 'signal-demo'; signalProgress = { ...signalProgress, [scenarios[activeIndex].id]: true };
+    try { localStorage.setItem('dans-le-match-signals-v1', JSON.stringify(signalProgress)); } catch { storageAvailable = false; }
+  }
+  render({ focus: true }); window.scrollTo({ top: 0, behavior: 'instant' });
+}
+
 app.addEventListener('click', event => {
   const button = event.target.closest('[data-action]'); if (!button || button.disabled) return;
   switch (button.dataset.action) {
@@ -214,15 +230,10 @@ app.addEventListener('click', event => {
     case 'choose-signal':
       if (phase !== 'signals') break;
       signalSession = chooseSignal(signalSession, scenarios[activeIndex], button.dataset.signalChoice);
-      render(); { const feedback = document.querySelector('.signal-feedback'); feedback?.setAttribute('tabindex', '-1'); feedback?.focus({ preventScroll: true }); feedback?.scrollIntoView({ block: 'nearest', behavior: 'smooth' }); } break;
+      render(); if (!signalSession.correct) { const feedback = document.querySelector('.signal-feedback'); feedback?.setAttribute('tabindex', '-1'); feedback?.focus({ preventScroll: true }); feedback?.scrollIntoView({ block: 'nearest', behavior: 'smooth' }); } break;
     case 'advance-signal':
       if (phase !== 'signals') break;
-      signalSession = advanceSignal(signalSession, scenarios[activeIndex]);
-      if (signalSession.done) {
-        phase = 'signal-demo'; signalProgress = { ...signalProgress, [scenarios[activeIndex].id]: true };
-        try { localStorage.setItem('dans-le-match-signals-v1', JSON.stringify(signalProgress)); } catch { storageAvailable = false; }
-      }
-      render({ focus: true }); window.scrollTo({ top: 0, behavior: 'instant' }); break;
+      advanceSignalGame(); break;
     case 'decision-review': phase = 'feedback'; render({ focus: true }); court?.showMoment('exit'); window.scrollTo({ top: 0, behavior: 'instant' }); break;
     case 'replay-signals': if (phase === 'signal-demo') render(); break;
     case 'sources': openDialog('sources'); break;

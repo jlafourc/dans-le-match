@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { refereeSvg } from '../src/referee-signals.js';
 import { scenarios } from '../src/scenarios.js';
-import { signalSteps, createSignalSession, chooseSignal, advanceSignal, readSignalProgress, earnedSignalBadge, sampleSignalPose, sampleSignalSequence } from '../src/signals.js';
+import { signalSteps, createSignalSession, chooseSignal, advanceSignal, readSignalProgress, earnedSignalBadge, sampleSignalPose, sampleSignalSequence, scheduleSignalAdvance } from '../src/signals.js';
 
 test('les sorties utilisent la paume ouverte puis la direction de l’équipe bénéficiaire', () => {
   for (const scene of scenarios) {
@@ -121,4 +121,27 @@ test('les coudes ne pivotent pas brusquement pendant la transition', () => {
       previous = joints;
     }
   }
+});
+
+
+test('une bonne réponse enchaîne automatiquement après un bref retour visuel', context => {
+  context.mock.timers.enable({ apis: ['setTimeout'] });
+  for (const step of [0, 1]) {
+    let advances = 0;
+    scheduleSignalAdvance({ step, choice: 'correct', correct: true, done: false }, () => advances++);
+    context.mock.timers.tick(649); assert.equal(advances, 0);
+    context.mock.timers.tick(1); assert.equal(advances, 1);
+    context.mock.timers.tick(1000); assert.equal(advances, 1);
+  }
+});
+
+test('une erreur reste affichée et une navigation annule l’enchaînement', context => {
+  context.mock.timers.enable({ apis: ['setTimeout'] });
+  let advances = 0;
+  for (const session of [createSignalSession(), { choice: 'wrong', correct: false }, { choice: 'correct', correct: true, done: true }]) {
+    scheduleSignalAdvance(session, () => advances++);
+  }
+  context.mock.timers.tick(1000); assert.equal(advances, 0);
+  const cancel = scheduleSignalAdvance({ choice: 'correct', correct: true, done: false }, () => advances++);
+  cancel(); context.mock.timers.tick(1000); assert.equal(advances, 0);
 });

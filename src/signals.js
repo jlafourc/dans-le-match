@@ -99,3 +99,9 @@ export function sampleSignalSequence(time, direction) {
   }
   return { kind: t < 2.1 ? 'stop-clock' : direction, step: t < 2.1 ? 0 : 1, pose };
 }
+
+export function scheduleSignalAdvance(session, advance) {
+  if (!session.choice || !session.correct || session.done) return () => {};
+  const timer = setTimeout(advance, 650);
+  return () => clearTimeout(timer);
+}
