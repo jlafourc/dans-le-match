@@ -1,5 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import { refereeSvg } from '../src/referee-signals.js';
 import { scenarios } from '../src/scenarios.js';
 import { signalSteps, createSignalSession, chooseSignal, advanceSignal, readSignalProgress, earnedSignalBadge, sampleSignalPose, sampleSignalSequence } from '../src/signals.js';
 
@@ -104,5 +105,20 @@ test('poignets et doigts changent progressivement entre les signaux et à la rep
     const side = direction === 'direction-left' ? 'left' : 'right';
     assert.equal(final[side].y, 111);
     assert.equal(final.hands[side].pointAmount, 1);
+  }
+});
+
+
+test('les coudes ne pivotent pas brusquement pendant la transition', () => {
+  for (const direction of ['direction-left', 'direction-right']) {
+    let previous;
+    for (let time = 0; time < 6.8; time += 1 / 60) {
+      const sequence = sampleSignalSequence(time, direction);
+      const svg = refereeSvg(sequence.kind, 1, false, sequence.pose);
+      const joints = [...svg.matchAll(/<path d="M[^L]+L([\d.-]+) ([\d.-]+)"[^>]+stroke-width="10"/g)].map(m => ({ x: Number(m[1]), y: Number(m[2]) }));
+      assert.equal(joints.length, 2);
+      if (previous) joints.forEach((joint, i) => assert.ok(Math.hypot(joint.x - previous[i].x, joint.y - previous[i].y) < 6, `Coude saccadé : ${direction} à ${time}`));
+      previous = joints;
+    }
   }
 });

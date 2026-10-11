@@ -76,4 +76,4 @@ Les plans du prototype sont dans `docs/plans/`.
 
 - Variété des défis 4–5 : réception avec pied sur la ligne, deux touchers successifs, contacts des doigts et absence de contact prématuré vérifiés ; 47 tests passent. Vérification visuelle mobile des deux contacts et du zoom sur les appuis.
 
-- Fluidité des gestes : 49 tests passent, transitions gauche/droite et reprise continues ; démonstration à environ 60 images/s dans Chrome au format mobile 390 px, poses statiques du mode mouvements réduits vérifiées.
+- Fluidité des gestes : 50 tests passent, transitions gauche/droite et reprise continues ; démonstration à environ 60 images/s dans Chrome au format mobile 390 px, poses statiques du mode mouvements réduits vérifiées.

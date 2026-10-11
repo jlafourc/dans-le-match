@@ -87,6 +87,9 @@ export function sampleSignalSequence(time, direction) {
       const startAngle = Math.atan2(stop.right.y - 111, stop.right.x - 145);
       const angle = startAngle * (1 - amount), radius = Math.hypot(stop.right.x - 145, stop.right.y - 111) * (1 - amount) + 65 * amount;
       pose.right = { x: 145 + Math.cos(angle) * radius, y: 111 + Math.sin(angle) * radius };
+    } else {
+      // Lower the raised arm away from the shoulder to keep the elbow turning gradually.
+      pose.right = sampleSignalPose('stop-clock', 1 - amount).right;
     }
   } else {
     const amount = 1 - smoothSignal((t - 5.35) / .85);

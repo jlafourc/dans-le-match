@@ -11,3 +11,5 @@ Conserver une pause lisible sur chaque signal, puis une transition continue de 0
 ## Vérification
 
 Deux tests de régression échouent avant correction : absence de retour au repos entre les signaux et continuité des poignets/doigts. Vérifier ensuite toute la suite, le rendu mobile, la compilation et la publication sur le site existant. Les gestes et récompenses restent ceux du parcours existant.
+
+Le test du rendu SVG a révélé un pivot trop rapide du coude droit lors du signal vers la gauche (environ 15,6 unités par image). La descente suit maintenant la trajectoire courbe du signal d’arrêt ; un test vérifie aussi les coudes du SVG à 60 images/s.
