@@ -1,4 +1,4 @@
-import { scenarios } from './scenarios.js';
+import { scenarios, initiationScenarios } from './scenarios.js';
 
 export function decideThrowIn(lastTouchTeam) {
   if (!['blue', 'red'].includes(lastTouchTeam)) throw new Error('Équipe inconnue');
@@ -21,4 +21,4 @@ export function readProgress(raw) {
 }
 
 export function isUnlocked(progress, index) { return index === 0 || Boolean(progress[scenarios[index - 1]?.id]); }
-export function earnedBadge(progress) { return scenarios.every(s => progress[s.id] > 0); }
+export function earnedBadge(progress) { return initiationScenarios.every(s => progress[s.id] > 0); }

@@ -2,6 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { PerspectiveCamera, Vector3 } from 'three';
 import { scenarios, sampleBall } from '../src/scenarios.js';
+import { samplePlayerMotion } from '../src/movement.js';
 import { sampleCamera, reviewCaption } from '../src/presentation.js';
 
 test('le ballon et les joueurs utiles restent dans le cadrage mobile', () => {
@@ -16,8 +17,9 @@ test('le ballon et les joueurs utiles restent dans le cadrage mobile', () => {
         assert.ok(Math.abs(projected.x) < 0.92 && Math.abs(projected.y) < 0.88,
           `Ballon hors cadrage : ${scene.id}, t=${time}, ratio=${aspect}, x=${projected.x}, y=${projected.y}`);
         if (time <= scene.touchTime) {
-          for (const [x, z] of (scene.deflected ? [[4, -2.9], [5.44, -1.6]] : [[4, -2.9]])) {
-            const head = new Vector3(x, 2.12, z).project(camera);
+          for (const role of (scene.deflected || scene.attempted ? ['passer','defender'] : ['passer'])) {
+            const p = samplePlayerMotion(scene, role, time).position;
+            const head = new Vector3(p.x, p.y + 2.12, p.z).project(camera);
             assert.ok(Math.abs(head.x) < 0.88 && head.y < 0.82, 'Joueur ou étiquette hors cadrage');
           }
         }
@@ -61,4 +63,35 @@ test('le changement de direction est visible depuis la caméra du joueur', () =>
 test('le ralenti indique le toucher au contact, sans l’annoncer pendant l’approche', () => {
   assert.equal(reviewCaption(scenarios[1], scenarios[1].touchTime - .15), '');
   assert.equal(reviewCaption(scenarios[1], scenarios[1].touchTime + .15), '');
+});
+
+
+test('la revue d’une tentative manquée montre l’écart sans annoncer un toucher', () => {
+  const scene = scenarios.find(s=>s.attempted);
+  const pose = sampleCamera(scene,scene.interceptTime,344/370,true);
+  const normal = sampleCamera(scene,scene.interceptTime,344/370,false);
+  assert.ok(pose.fov < normal.fov - 10);
+  assert.match(reviewCaption(scene,scene.interceptTime), /ne touche pas/);
+  assert.equal(reviewCaption(scene,scene.interceptTime-.15),'');
+  assert.equal(reviewCaption(scene,scene.touchTime),scene.touchLabel);
+});
+
+test('le ralenti fait une pause sur la tentative manquée entre le dernier toucher et la sortie', async () => {
+  const { reviewMoments } = await import('../src/presentation.js');
+  assert.equal(typeof reviewMoments,'function');
+  for(const scene of scenarios) {
+    const moments=reviewMoments(scene);
+    assert.deepEqual(moments.map(m=>m.time),scene.attempted ? [scene.touchTime,scene.interceptTime,scene.exitTime] : [scene.touchTime,scene.exitTime]);
+    assert.ok(moments.every(m=>m.hold>=1.5));
+  }
+});
+
+test('la caméra du ralenti reste continue entre le dernier toucher et l’interception manquée', () => {
+  const scene=scenarios.find(s=>s.attempted);
+  let previous;
+  for(let t=0;t<=scene.duration;t+=.005){
+    const pose=sampleCamera(scene,t,298/370,true);
+    if(previous)assert.ok(Math.hypot(...pose.target.map((n,i)=>n-previous.target[i]))<.04, `Caméra brusque à ${t}`);
+    previous=pose;
+  }
 });

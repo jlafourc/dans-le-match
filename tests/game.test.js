@@ -9,15 +9,15 @@ test('la remise en jeu revient à l’adversaire du dernier joueur à toucher le
   assert.throws(() => decideThrowIn('green'));
 });
 
-test('les trois scènes suivent la règle du dernier toucher', () => {
-  assert.equal(scenarios.length, 3);
+test('les six scènes suivent la règle du dernier toucher', () => {
+  assert.equal(scenarios.length, 6);
   for (const scene of scenarios) assert.equal(scene.answer, decideThrowIn(scene.lastTouchTeam));
 });
 
 test('le ballon ne sort pas simplement en franchissant la ligne en l’air', () => {
   for (const scene of scenarios) {
     const air = sampleBall(scene, scene.exitTime - 0.15);
-    assert.ok(air.x > 7.5);
+    assert.ok(Math.abs(air.x) > 7.5);
     assert.ok(air.y > 0.12);
     assert.equal(air.out, false);
     const landed = sampleBall(scene, scene.exitTime);
@@ -73,7 +73,7 @@ test('la déviation change visiblement la direction au contact, sans saut du bal
     const c = sampleBall(scene, scene.touchTime + 0.01);
     const incoming = Math.atan2(b.z - a.z, b.x - a.x);
     const outgoing = Math.atan2(c.z - b.z, c.x - b.x);
-    const turn = Math.abs(outgoing - incoming) * 180 / Math.PI;
+    const turn = Math.abs(Math.atan2(Math.sin(outgoing - incoming), Math.cos(outgoing - incoming))) * 180 / Math.PI;
     assert.ok(turn >= 20 && turn <= 35, `Déviation peu lisible ou excessive : ${turn.toFixed(1)}°`);
     assert.ok(Math.hypot(c.x - a.x, c.y - a.y, c.z - a.z) < 0.06, 'Le ballon ne doit pas sauter au contact');
   }

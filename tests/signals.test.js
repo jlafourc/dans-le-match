@@ -32,7 +32,7 @@ test('les deux bons gestes sont nécessaires pour finir la formation', () => {
   assert.equal(session.done, true);
 });
 
-test('la validation des gestes conserve uniquement les trois réussites connues', () => {
+test('la validation des gestes conserve uniquement les réussites des défis connus', () => {
   assert.deepEqual(readSignalProgress('{"direct":true,"red-deflection":1,"unknown":true}'), { direct: true });
   for (const invalid of ['null', '[]', '{', '"direct"']) assert.deepEqual(readSignalProgress(invalid), {});
   assert.equal(earnedSignalBadge({ direct: true }), false);

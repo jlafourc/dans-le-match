@@ -1,9 +1,10 @@
 import * as THREE from 'three';
-import { sampleBall, samplePasserPose, sampleDefenderPose } from './scenarios.js';
-import { sampleCamera } from './presentation.js';
+import { sampleBall, samplePasserPose, sampleDefenderPose, worldPoint, worldYaw, localPoint } from './scenarios.js';
+import { sampleCamera, reviewMoments } from './presentation.js';
 import { createHand, pointHand } from './hands.js';
 import { sampleArmPose } from './arms.js';
 import { sampleGaze } from './gaze.js';
+import { samplePlayerMotion, solveLeg } from './movement.js';
 
 const colors = { blue: 0x155bd0, red: 0xdd2836, ink: 0x182b38 };
 const mat = (color, extra = {}) => new THREE.MeshStandardMaterial({ color, roughness: 0.78, ...extra });
@@ -112,16 +113,30 @@ function createHoop(parent, end) {
 function createPlayer(parent, team, position, number, skinColor = 0x9c674b, facing = 0) {
   const root = new THREE.Group(); root.position.set(...position); root.rotation.y = facing; parent.add(root);
   const jersey = mat(colors[team]), skin = mat(skinColor), white = mat(0xecece7), shoe = mat(0xe9e7e2), hair = mat(0x272320);
-  // Human proportions: shoes, lower legs, knees, shorts, torso, neck and head.
-  for (const x of [-0.13, 0.13]) {
-    box(root, [0.16, 0.105, 0.3], [x, 0.055, 0.045], shoe);
-    box(root, [0.165, 0.025, 0.31], [x, 0.02, 0.045], mat(0x303945));
-    segment(root, vec(x, 0.14, 0), vec(x, 0.4, -0.025), 0.055, white);
-    segment(root, vec(x, 0.4, -0.025), vec(x, 0.6, 0.025), 0.064, skin);
-    sphere(root, 0.072, [x, 0.61, 0.025], skin);
-    segment(root, vec(x, 0.61, 0.025), vec(x, 0.82, 0), 0.082, skin);
-    const short = new THREE.Mesh(new THREE.CylinderGeometry(0.11, 0.12, 0.28, 10), jersey); short.position.set(x, 0.91, 0); root.add(short);
-    box(root, [0.015, 0.24, 0.15], [x + Math.sign(x) * 0.107, 0.92, 0], white);
+  const legs = [];
+  for (const side of [-1, 1]) {
+    const hip = vec(side * .13, 1.01, 0);
+    const upper = segment(root, hip, vec(side * .13, .6, .08), .082, skin);
+    const knee = sphere(root, .072, [side * .13, .6, .08], skin);
+    const calf = segment(root, vec(side * .13, .6, .08), vec(side * .13, .35, 0), .064, skin);
+    const sock = segment(root, vec(side * .13, .35, 0), vec(side * .13, .14, .04), .055, white);
+    const foot = new THREE.Group(); root.add(foot);
+    box(foot, [.16, .105, .3], [0, -.085, .045], shoe);
+    box(foot, [.165, .025, .31], [0, -.12, .045], mat(0x303945));
+    const short = new THREE.Mesh(new THREE.CylinderGeometry(.11, .12, 1, 10), jersey); root.add(short);
+    box(short, [.015, .9, .15], [side * .107, 0, 0], white);
+    legs.push({side, hip, upper, knee, calf, sock, foot, short});
+  }
+  function move(pose) {
+    root.position.set(pose.position.x, pose.position.y, pose.position.z); root.rotation.y = pose.yaw;
+    for (const leg of legs) {
+      const {knee, ankle} = solveLeg(leg.hip, pose.feet[leg.side]);
+      placeSegment(leg.upper, leg.hip, knee); leg.knee.position.copy(knee);
+      const sockTop = knee.clone().lerp(ankle, .55);
+      placeSegment(leg.calf, knee, sockTop); placeSegment(leg.sock, sockTop, ankle);
+      placeSegment(leg.short, leg.hip, leg.hip.clone().lerp(knee, .58));
+      leg.foot.position.copy(ankle);
+    }
   }
   const torso = new THREE.Mesh(new THREE.CylinderGeometry(0.235, 0.195, 0.48, 12), jersey);
   torso.scale.z = 0.65; torso.position.y = 1.27; root.add(torso);
@@ -158,7 +173,7 @@ function createPlayer(parent, team, position, number, skinColor = 0x9c674b, faci
     const gaze = sampleGaze(root.position, root.rotation.y, target);
     head.rotation.y = gaze.yaw; head.rotation.x = gaze.pitch;
   }
-  return { root, pose, lookAt, team };
+  return { root, pose, lookAt, move, team };
 }
 
 function createBall(parent) {
@@ -225,7 +240,8 @@ export class Court {
       box(this.scene, [0.25, 6.8, 0.25], [-9.6, 3.4, z], mat(0xa5b1b0));
       box(this.scene, [0.08, 1.3, 2.5], [-9.65, 4.7, z + 1.7], mat(0xa6c2c9, { emissive: 0x759599, emissiveIntensity: 0.15 }));
     }
-    for (let i = 0; i < 3; i++) box(this.scene, [0.7, 0.25, 15], [-8.5 - i * 0.45, 0.3 + i * 0.4, 0], wood);
+    // Keep the sideline clear for the referee and for visible out-of-bounds landings.
+    for (let i = 0; i < 3; i++) box(this.scene, [15, .25, .7], [0, .3 + i * .4, -15.2 - i * .45], wood);
     const banner = document.createElement('canvas'); banner.width = 1024; banner.height = 256;
     const ctx = banner.getContext('2d'); ctx.fillStyle = '#1b3445'; ctx.fillRect(0, 0, 1024, 256);
     ctx.fillStyle = '#f1ede4'; ctx.font = 'bold 74px Arial'; ctx.textAlign = 'center'; ctx.fillText('DANS LE MATCH', 512, 122);
@@ -246,15 +262,17 @@ export class Court {
     for (const material of materials) { material.map?.dispose(); material.dispose(); }
     this.playerGroup.clear();
     const defender = scenario.attackTeam === 'blue' ? 'red' : 'blue';
-    this.passer = createPlayer(this.playerGroup, scenario.attackTeam, [4.0, 0, -2.9], scenario.attackTeam === 'blue' ? 7 : 12, 0x9a6146, 0.75);
-    this.defender = createPlayer(this.playerGroup, defender, scenario.deflected ? [5.44, 0, -1.6] : [2.7, 0, -1.5], defender === 'blue' ? 7 : 12, 0xcc9778, scenario.deflected ? Math.PI : -.65);
+    const place = position => { const p = worldPoint(scenario, {x:position[0],y:position[1],z:position[2]}); return [p.x,p.y,p.z]; };
+    this.passer = createPlayer(this.playerGroup, scenario.attackTeam, place([4,0,-2.9]), scenario.attackTeam === 'blue' ? 7 : 12, 0x9a6146, worldYaw(scenario,.75));
+    this.defender = createPlayer(this.playerGroup, defender, place([5.44,0,-1.6]), defender === 'blue' ? 7 : 12, 0xcc9778, worldYaw(scenario,Math.PI));
     this.extras = [
-      createPlayer(this.playerGroup, scenario.attackTeam, [-1.1, 0, -6.4], 4, 0xc58c67, 1.4),
-      createPlayer(this.playerGroup, defender, [-2.2, 0, -5.8], 9, 0x86503e, 0.7),
-      createPlayer(this.playerGroup, scenario.attackTeam, [-1.3, 0, -6.8], 10, 0xb9835a, 0.5),
-      createPlayer(this.playerGroup, defender, [-2.5, 0, -7.2], 5, 0xd5aa8e, -0.5),
+      createPlayer(this.playerGroup, scenario.attackTeam, place([-1.1,0,-6.4]), 4, 0xc58c67, worldYaw(scenario,1.4)),
+      createPlayer(this.playerGroup, defender, place([-2.2,0,-5.8]), 9, 0x86503e, worldYaw(scenario,.7)),
+      createPlayer(this.playerGroup, scenario.attackTeam, place([-.1,0,-8.5]), 10, 0xb9835a, worldYaw(scenario,.5)),
+      createPlayer(this.playerGroup, defender, place([-3.6,0,-8.6]), 5, 0xd5aa8e, worldYaw(scenario,-.5)),
     ];
-    const observers = scenario.deflected ? this.extras : [this.defender, ...this.extras];
+    for (const extra of this.extras) extra.move({position:extra.root.position.clone(),yaw:extra.root.rotation.y,feet:{'-1':{x:-.13,y:.14,z:.04},'1':{x:.13,y:.14,z:.04}}});
+    const observers = this.extras;
     for (const observer of observers) {
       const ball = sampleBall(scenario, 0);
       observer.root.rotation.y = Math.atan2(ball.x - observer.root.position.x, ball.z - observer.root.position.z);
@@ -278,7 +296,7 @@ export class Court {
   play({ slow = false, onTick, onEnd } = {}) {
     if (!this.scenario) return;
     this.currentTime = 0; this.explaining = slow;
-    this.playback = { speed: slow ? 0.45 : 1, onTick, onEnd, heldTouch: false, heldExit: false, hold: 0, paused: false };
+    this.playback = { speed: slow ? 0.45 : 1, onTick, onEnd, moments:reviewMoments(this.scenario), reviewIndex:0, hold:0, paused:false };
     this.dirty = true;
   }
 
@@ -294,7 +312,7 @@ export class Court {
   showMoment(kind) {
     if (!this.scenario) return;
     this.stop(); this.explaining = true;
-    this.currentTime = kind === 'touch' ? this.scenario.touchTime : this.scenario.exitTime;
+    this.currentTime = kind === 'touch' ? this.scenario.touchTime : kind === 'attempt' ? this.scenario.interceptTime : this.scenario.exitTime;
   }
 
   drawState() {
@@ -303,20 +321,26 @@ export class Court {
     const cameraPose = sampleCamera(this.scenario, time, this.camera.aspect, this.explaining);
     this.camera.position.set(...cameraPose.position); this.camera.lookAt(...cameraPose.target);
     this.camera.fov = cameraPose.fov; this.camera.updateProjectionMatrix(); this.camera.updateMatrixWorld();
-    this.ball.position.copy(target); this.ball.rotation.set(time * 0.7, time * 1.1, time);
+    this.ball.position.copy(target);
+    const flightTime = Math.max(0, time - this.scenario.releaseTime);
+    this.ball.rotation.set(flightTime * .7, flightTime * 1.1, flightTime);
+    this.passer.move(samplePlayerMotion(this.scenario, 'passer', time));
+    this.defender.move(samplePlayerMotion(this.scenario, 'defender', time));
     for (const player of [this.passer, this.defender, ...this.extras]) player.lookAt(target);
     const passerPose = samplePasserPose(this.scenario, time);
     this.passer.pose(vec(passerPose.target.x, passerPose.target.y, passerPose.target.z), passerPose.reach);
     const touch = this.scenario.touchTime;
     const gesture = sampleDefenderPose(this.scenario, time);
-    this.defender.pose(this.scenario.deflected ? vec(gesture.target.x, gesture.target.y, gesture.target.z) : this.defender.root.position.clone().add(vec(0, 1.1, 0.1)), this.scenario.deflected ? gesture.reach : .12, true);
-    for (const extra of this.extras) extra.pose(vec(4.38, 1.38, -2.68), 0.1);
+    this.defender.pose(this.scenario.deflected || this.scenario.attempted ? vec(gesture.target.x, gesture.target.y, gesture.target.z) : this.defender.root.position.clone().add(vec(0, 1.1, 0.1)), this.scenario.deflected || this.scenario.attempted ? gesture.reach : .12, true);
+    for (const extra of this.extras) extra.pose(target, 0.1);
     this.highlight.visible = this.explaining && Math.abs(time - touch) < 0.04;
     this.highlight.position.copy(target); this.highlight.quaternion.copy(this.camera.quaternion);
     this.exitRing.visible = this.explaining && time >= this.scenario.exitTime;
     this.exitRing.position.set(point.x, 0.019, point.z);
     this.exitLine.visible = this.exitRing.visible;
-    this.exitLine.position.z = sampleBall(this.scenario, this.scenario.exitTime).z;
+    const exit = localPoint(this.scenario, sampleBall(this.scenario, this.scenario.exitTime));
+    const line = worldPoint(this.scenario, {x:7.5, y:.012, z:exit.z});
+    this.exitLine.position.set(line.x,line.y,line.z); this.exitLine.rotation.y = worldYaw(this.scenario,0);
     const labelPositions = [];
     [this.passer, this.defender].forEach((player, i) => {
       const p = player.root.position.clone().add(vec(0, 2.12, 0)).project(this.camera);
@@ -339,10 +363,9 @@ export class Court {
       if (playback.hold > 0) playback.hold -= delta;
       else {
         const next = this.currentTime + delta * playback.speed;
-        if (this.explaining && !playback.heldTouch && next >= this.scenario.touchTime) {
-          this.currentTime = this.scenario.touchTime; playback.heldTouch = true; playback.hold = 2.0;
-        } else if (this.explaining && !playback.heldExit && next >= this.scenario.exitTime) {
-          this.currentTime = this.scenario.exitTime; playback.heldExit = true; playback.hold = 1.6;
+        const moment = playback.moments[playback.reviewIndex];
+        if (this.explaining && moment && next >= moment.time) {
+          this.currentTime = moment.time; playback.reviewIndex++; playback.hold = moment.hold;
         } else this.currentTime = Math.min(next, this.scenario.duration);
       }
       playback.onTick?.(this.currentTime, this.scenario);

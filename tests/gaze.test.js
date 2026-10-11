@@ -1,18 +1,19 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import * as gaze from '../src/gaze.js';
+import { samplePlayerMotion } from '../src/movement.js';
 import { scenarios, sampleBall } from '../src/scenarios.js';
 
 const angle = value => Math.atan2(Math.sin(value), Math.cos(value));
 test('le défenseur regarde le ballon pendant toute la passe, sans tourner le dos au contact', () => {
   assert.equal(typeof gaze.sampleGaze, 'function');
-  const position = { x: 5.44, y: 0, z: -1.6 };
   for (const scene of scenarios.filter(s => s.deflected)) {
     for (let time = 0; time <= scene.duration; time += .01) {
       const ball = sampleBall(scene, time);
-      const pose = gaze.sampleGaze(position, Math.PI, ball);
-      const desired = Math.atan2(ball.x - position.x, ball.z - position.z);
-      assert.ok(Math.abs(angle(Math.PI + pose.yaw - desired)) < .08, `Regard hors action à t=${time}`);
+      const body = samplePlayerMotion(scene,'defender',time);
+      const pose = gaze.sampleGaze(body.position, body.yaw, ball);
+      const desired = Math.atan2(ball.x - body.position.x, ball.z - body.position.z);
+      assert.ok(Math.abs(angle(body.yaw + pose.yaw - desired)) < .08, `Regard hors action à t=${time}`);
       assert.ok(Math.abs(pose.yaw) <= 80 * Math.PI / 180, 'Rotation excessive du cou');
       assert.ok(Math.abs(pose.pitch) <= .6, 'Inclinaison excessive du cou');
     }

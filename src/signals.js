@@ -1,4 +1,4 @@
-import { scenarios } from './scenarios.js';
+import { scenarios, initiationScenarios } from './scenarios.js';
 
 export const signalSource = {
   title: 'FIBA / FFBB 2026 · Annexe A, pages 77–78',
@@ -44,7 +44,7 @@ export function readSignalProgress(raw) {
     return Object.fromEntries(scenarios.filter(s => value[s.id] === true).map(s => [s.id, true]));
   } catch { return {}; }
 }
-export function earnedSignalBadge(progress) { return scenarios.every(s => progress[s.id] === true); }
+export function earnedSignalBadge(progress) { return initiationScenarios.every(s => progress[s.id] === true); }
 
 const blend = (start, end, t) => ({ x: start.x + (end.x - start.x) * t, y: start.y + (end.y - start.y) * t });
 export const smoothSignal = value => { const t = Math.max(0, Math.min(1, value)); return t * t * (3 - 2 * t); };
