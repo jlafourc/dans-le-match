@@ -1,10 +1,10 @@
 import * as THREE from 'three';
-import { sampleBall, samplePasserPose, sampleDefenderPose, worldPoint, worldYaw, localPoint } from './scenarios.js';
+import { sampleBall, samplePasserPose, sampleDefenderPose, sampleReceiverPose, worldPoint, worldYaw, localPoint } from './scenarios.js';
 import { sampleCamera, reviewMoments } from './presentation.js';
 import { createHand, pointHand } from './hands.js';
 import { sampleArmPose } from './arms.js';
 import { sampleGaze } from './gaze.js';
-import { samplePlayerMotion, solveLeg } from './movement.js';
+import { samplePlayerMotion, solveLeg, sampleLineFoot } from './movement.js';
 
 const colors = { blue: 0x155bd0, red: 0xdd2836, ink: 0x182b38 };
 const mat = (color, extra = {}) => new THREE.MeshStandardMaterial({ color, roughness: 0.78, ...extra });
@@ -173,7 +173,7 @@ function createPlayer(parent, team, position, number, skinColor = 0x9c674b, faci
     const gaze = sampleGaze(root.position, root.rotation.y, target);
     head.rotation.y = gaze.yaw; head.rotation.x = gaze.pitch;
   }
-  return { root, pose, lookAt, move, team };
+  return { root, pose, lookAt, move, team, number };
 }
 
 function createBall(parent) {
@@ -206,7 +206,7 @@ export class Court {
     host.append(this.renderer.domElement);
     this.playerLabels = document.createElement('div'); this.playerLabels.className = 'player-labels';
     this.playerLabels.setAttribute('aria-hidden', 'true');
-    this.playerLabels.innerHTML = '<span class="player-label"></span><span class="player-label"></span>';
+    this.playerLabels.innerHTML = '<span class="player-label"></span><span class="player-label"></span><span class="player-label"></span>';
     host.append(this.playerLabels);
     this.scene.add(new THREE.HemisphereLight(0xffffff, 0x686d63, 1.9));
     const light = new THREE.DirectionalLight(0xfff4dd, 2.5); light.position.set(4, 14, 3); light.castShadow = true;
@@ -252,7 +252,7 @@ export class Court {
   }
 
   setScenario(scenario) {
-    this.stop(); this.scenario = scenario;
+    this.stop(); this.scenario = scenario; this.reviewFeet = false;
     // Free all geometries and jersey textures when changing missions.
     const materials = new Set();
     this.playerGroup.traverse(object => {
@@ -265,8 +265,9 @@ export class Court {
     const place = position => { const p = worldPoint(scenario, {x:position[0],y:position[1],z:position[2]}); return [p.x,p.y,p.z]; };
     this.passer = createPlayer(this.playerGroup, scenario.attackTeam, place([4,0,-2.9]), scenario.attackTeam === 'blue' ? 7 : 12, 0x9a6146, worldYaw(scenario,.75));
     this.defender = createPlayer(this.playerGroup, defender, place([5.44,0,-1.6]), defender === 'blue' ? 7 : 12, 0xcc9778, worldYaw(scenario,Math.PI));
+    this.receiver = scenario.receiver ? createPlayer(this.playerGroup, scenario.attackTeam, place([scenario.receiver.x,0,scenario.receiver.z]),4,0xc58c67,worldYaw(scenario,scenario.receiver.yaw)) : null;
     this.extras = [
-      createPlayer(this.playerGroup, scenario.attackTeam, place([-1.1,0,-6.4]), 4, 0xc58c67, worldYaw(scenario,1.4)),
+      createPlayer(this.playerGroup, scenario.attackTeam, place([-1.1,0,-6.4]), scenario.receiver ? 11 : 4, 0xc58c67, worldYaw(scenario,1.4)),
       createPlayer(this.playerGroup, defender, place([-2.2,0,-5.8]), 9, 0x86503e, worldYaw(scenario,.7)),
       createPlayer(this.playerGroup, scenario.attackTeam, place([-.1,0,-8.5]), 10, 0xb9835a, worldYaw(scenario,.5)),
       createPlayer(this.playerGroup, defender, place([-3.6,0,-8.6]), 5, 0xd5aa8e, worldYaw(scenario,-.5)),
@@ -277,10 +278,11 @@ export class Court {
       const ball = sampleBall(scenario, 0);
       observer.root.rotation.y = Math.atan2(ball.x - observer.root.position.x, ball.z - observer.root.position.z);
     }
-    [this.passer, this.defender].forEach((player, i) => {
+    [this.passer, this.defender, this.receiver].filter(Boolean).forEach((player, i) => {
       const label = this.playerLabels.children[i]; label.className = `player-label ${player.team}`;
-      label.textContent = player.team === 'blue' ? 'BLEU · 7' : 'ROUGE · 12';
+      label.textContent = `${player.team === 'blue' ? 'BLEU' : 'ROUGE'} · ${player.number}`;
     });
+    this.playerLabels.children[2].hidden = !this.receiver;
     this.currentTime = 0; this.explaining = false; this.drawState();
   }
 
@@ -295,7 +297,7 @@ export class Court {
 
   play({ slow = false, onTick, onEnd } = {}) {
     if (!this.scenario) return;
-    this.currentTime = 0; this.explaining = slow;
+    this.currentTime = 0; this.explaining = slow; this.reviewFeet = false;
     this.playback = { speed: slow ? 0.45 : 1, onTick, onEnd, moments:reviewMoments(this.scenario), reviewIndex:0, hold:0, paused:false };
     this.dirty = true;
   }
@@ -312,13 +314,14 @@ export class Court {
   showMoment(kind) {
     if (!this.scenario) return;
     this.stop(); this.explaining = true;
-    this.currentTime = kind === 'touch' ? this.scenario.touchTime : kind === 'attempt' ? this.scenario.interceptTime : this.scenario.exitTime;
+    this.reviewFeet = kind === 'feet';
+    this.currentTime = kind === 'touch' || kind === 'feet' ? this.scenario.touchTime : kind === 'first' ? this.scenario.firstTouchTime : kind === 'attempt' ? this.scenario.interceptTime : this.scenario.exitTime;
   }
 
   drawState() {
     if (!this.scenario) return;
     const time = this.currentTime, point = sampleBall(this.scenario, time), target = vec(point.x, point.y, point.z);
-    const cameraPose = sampleCamera(this.scenario, time, this.camera.aspect, this.explaining);
+    const cameraPose = sampleCamera(this.scenario, time, this.camera.aspect, this.explaining, this.reviewFeet);
     this.camera.position.set(...cameraPose.position); this.camera.lookAt(...cameraPose.target);
     this.camera.fov = cameraPose.fov; this.camera.updateProjectionMatrix(); this.camera.updateMatrixWorld();
     this.ball.position.copy(target);
@@ -326,23 +329,26 @@ export class Court {
     this.ball.rotation.set(flightTime * .7, flightTime * 1.1, flightTime);
     this.passer.move(samplePlayerMotion(this.scenario, 'passer', time));
     this.defender.move(samplePlayerMotion(this.scenario, 'defender', time));
-    for (const player of [this.passer, this.defender, ...this.extras]) player.lookAt(target);
+    if(this.receiver) this.receiver.move(samplePlayerMotion(this.scenario,'receiver',time));
+    for (const player of [this.passer, this.defender, this.receiver, ...this.extras].filter(Boolean)) player.lookAt(target);
     const passerPose = samplePasserPose(this.scenario, time);
     this.passer.pose(vec(passerPose.target.x, passerPose.target.y, passerPose.target.z), passerPose.reach);
     const touch = this.scenario.touchTime;
     const gesture = sampleDefenderPose(this.scenario, time);
     this.defender.pose(this.scenario.deflected || this.scenario.attempted ? vec(gesture.target.x, gesture.target.y, gesture.target.z) : this.defender.root.position.clone().add(vec(0, 1.1, 0.1)), this.scenario.deflected || this.scenario.attempted ? gesture.reach : .12, true);
+    if(this.receiver){const pose=sampleReceiverPose(this.scenario,time);this.receiver.pose(vec(pose.target.x,pose.target.y,pose.target.z),pose.reach);}
     for (const extra of this.extras) extra.pose(target, 0.1);
-    this.highlight.visible = this.explaining && Math.abs(time - touch) < 0.04;
+    this.highlight.visible = this.explaining && (Math.abs(time - touch) < .04 || this.scenario.doubleTouch && Math.abs(time-this.scenario.firstTouchTime)<.04);
     this.highlight.position.copy(target); this.highlight.quaternion.copy(this.camera.quaternion);
     this.exitRing.visible = this.explaining && time >= this.scenario.exitTime;
-    this.exitRing.position.set(point.x, 0.019, point.z);
+    const foot = this.scenario.exitKind==='player' ? sampleLineFoot(this.scenario,time) : null;
+    this.exitRing.position.set(foot?.x ?? point.x, .019, foot?.z ?? point.z);
     this.exitLine.visible = this.exitRing.visible;
     const exit = localPoint(this.scenario, sampleBall(this.scenario, this.scenario.exitTime));
-    const line = worldPoint(this.scenario, {x:7.5, y:.012, z:exit.z});
+    const line = worldPoint(this.scenario, {x:7.5, y:.012, z:this.scenario.exitKind==='player' ? localPoint(this.scenario,foot).z : exit.z});
     this.exitLine.position.set(line.x,line.y,line.z); this.exitLine.rotation.y = worldYaw(this.scenario,0);
     const labelPositions = [];
-    [this.passer, this.defender].forEach((player, i) => {
+    [this.passer, this.defender, this.receiver].filter(Boolean).forEach((player, i) => {
       const p = player.root.position.clone().add(vec(0, 2.12, 0)).project(this.camera);
       const label = this.playerLabels.children[i];
       label.hidden = Math.abs(p.x) > 0.76 || Math.abs(p.y) > 0.82;

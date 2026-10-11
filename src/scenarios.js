@@ -2,7 +2,7 @@ export const ruleSource = {
   title: 'Règlement officiel FIBA / FFBB 2026',
   shortTitle: 'FIBA / FFBB 2026',
   page: 34,
-  article: 'Articles 22.2, 23.1.2 et 23.2.1',
+  article: 'Articles 22.2, 23.1.1–23.1.2 et 23.2.1–23.2.2',
   url: 'https://api.ffbb.app/assets/313f308a-7b3b-4116-b969-882eb9c1d3ea?fs=5201041#page=34',
 };
 
@@ -35,24 +35,25 @@ export const scenarios = [
     touchLabel: 'Dernier toucher · Bleu n°7',
   },
   {
-    id: 'opposite-pass', title: 'L’autre côté du match', subtitle: 'Change de point de vue',
+    id: 'opposite-pass', title: 'Le pied compte aussi', subtitle: 'Regarde les appuis',
     level: 'DÉFI 04', difficulty: 'Entraînement', attackTeam: 'red', lastTouchTeam: 'red',
-    answer: 'blue', deflected: false, releaseTime: 1.05, touchTime: 1.05, exitTime: 3.6, duration: 4.3,
-    frame: { yaw: Math.PI, z: 4 },
-    cue: 'Tu observes maintenant depuis l’autre ligne de touche. Suis cette passe jusqu’à sa sortie.',
-    explanation: 'Le rouge n°12 fait la passe. Aucun défenseur ne touche le ballon avant sa sortie. Le dernier toucher est rouge : remise en jeu pour les bleus.',
-    takeaway: 'La position sur le terrain change, mais la règle du dernier toucher reste la même.',
-    touchLabel: 'Dernier toucher · Rouge n°12',
+    answer: 'blue', deflected: false, exitKind: 'player', releaseTime: .9, touchTime: 2.3, exitTime: 2.3, duration: 3.3,
+    frame: { yaw: 0, z: -5 }, receiver: {x:7.25,z:-1.6,yaw:Math.PI,initialYaw:Math.PI,line:true},
+    cue: 'Le rouge n°4 reçoit une passe près de la touche. Observe le ballon et les appuis.',
+    explanation: 'Le rouge n°4 touche le ballon alors qu’un pied est posé sur la ligne. Il est hors des limites du terrain : le ballon est sorti dès cette réception, même s’il est encore en l’air à l’intérieur. Remise en jeu pour les bleus.',
+    takeaway: 'La ligne fait partie de l’extérieur. Pour lire une sortie, regarde aussi où le joueur pose ses pieds.',
+    touchLabel: 'Réception · Rouge n°4 · Pied sur la ligne',
+    exitLabel: 'Le ballon sort au contact du joueur sur la ligne',
   },
   {
-    id: 'corner-deflection', title: 'Au bord de l’action', subtitle: 'Retrouve le bon indice',
-    level: 'DÉFI 05', difficulty: 'Entraînement', attackTeam: 'blue', lastTouchTeam: 'red',
-    answer: 'blue', deflected: true, releaseTime: 0.85, touchTime: 1.8, exitTime: 3.0, duration: 3.7,
-    frame: { yaw: Math.PI, z: -8 },
-    cue: 'Une passe traverse cette zone du terrain. Reste attentif à ce qui se passe près du ballon.',
-    explanation: 'Le rouge n°12 effleure le ballon et change sa trajectoire. Malgré la passe initiale bleue, le dernier toucher est rouge : les bleus bénéficient de la remise en jeu.',
-    takeaway: 'Suis le ballon avec les yeux : un petit contact peut décider de la remise en jeu.',
-    touchLabel: 'Dernier toucher · Rouge n°12',
+    id: 'corner-deflection', title: 'Qui touche en dernier ?', subtitle: 'Suis les deux contacts',
+    level: 'DÉFI 05', difficulty: 'Entraînement', attackTeam: 'red', firstTouchTeam: 'blue', lastTouchTeam: 'red',
+    answer: 'blue', deflected: true, doubleTouch: true, releaseTime: .9, firstTouchTime: 1.75, touchTime: 2.4, exitTime: 3.55, duration: 4.25,
+    frame: { yaw: Math.PI, z: -8 }, receiver: {x:6.82,z:-2.57,yaw:.35,initialYaw:-.8},
+    cue: 'Une passe arrive entre deux joueurs. Suis toute l’action avant de décider.',
+    explanation: 'Le bleu n°7 dévie d’abord la passe rouge. Puis le rouge n°4 touche à son tour le ballon en tentant de le récupérer. Le dernier toucher est donc rouge : la remise en jeu revient aux bleus.',
+    takeaway: 'Ne décide pas au premier contact. Un autre joueur peut encore toucher le ballon avant sa sortie.',
+    firstTouchLabel: 'Premier toucher · Bleu n°7', touchLabel: 'Dernier toucher · Rouge n°4',
   },
   {
     id: 'missed-interception', title: 'Tout près du ballon', subtitle: 'Observe jusqu’au bout',
@@ -104,6 +105,20 @@ function sampleLocalBall(scene, time) {
     const prepare = u * u * (3 - 2 * u);
     return { ...origin, y: origin.y - .24 * (1 - prepare), out: false };
   }
+  if (scene.exitKind === 'player') {
+    const catchPoint = {x:6.27,y:1.43,z:-1.88};
+    if (time >= scene.touchTime) return {...catchPoint,out:true};
+    const u = (time-scene.releaseTime)/(scene.touchTime-scene.releaseTime);
+    return {x:lerp(origin.x,catchPoint.x,u),y:lerp(origin.y,catchPoint.y,u)+Math.sin(u*Math.PI)*.10,z:lerp(origin.z,catchPoint.z,u),out:false};
+  }
+  if (scene.doubleTouch) {
+    const second = {x:7.05,y:1.38,z:-1.95}, landing = {x:8.5,y:.12,z:-1.4};
+    if(time>=scene.exitTime){const after=Math.min(time-scene.exitTime,.7);return {x:landing.x+after*.45,y:.12+Math.sin(after/.7*Math.PI)*.2,z:landing.z+after*.15,out:true};}
+    const knots = [[scene.releaseTime,origin],[scene.firstTouchTime,touch],[scene.touchTime,second],[scene.exitTime,landing]];
+    const i = time<=scene.firstTouchTime ? 0 : time<=scene.touchTime ? 1 : 2;
+    const [startTime,start]=knots[i], [endTime,end]=knots[i+1], u=(time-startTime)/(endTime-startTime);
+    return {x:lerp(start.x,end.x,u),y:lerp(start.y,end.y,u)+Math.sin(u*Math.PI)*(i===0 ? .10 : .03),z:lerp(start.z,end.z,u),out:false};
+  }
   if (time >= scene.exitTime) {
     const after = Math.min(time - scene.exitTime, 0.7);
     return { x: exit.x + after * 0.45, y: 0.12 + Math.sin(after / 0.7 * Math.PI) * 0.2, z: exit.z + after * (scene.deflected ? -0.05 : 0.15), out: true };
@@ -120,7 +135,7 @@ function sampleLocalBall(scene, time) {
 }
 
 export function sampleDefenderPose(scene, time) {
-  const touch = scene.interceptTime || scene.touchTime;
+  const touch = scene.firstTouchTime || scene.interceptTime || scene.touchTime;
   const target = sampleLocalBall(scene, touch);
   // Approach from beside the passing lane rather than waiting inside it.
   target.z += Math.min(.6, Math.max(0, touch - time) * 3);
@@ -128,4 +143,13 @@ export function sampleDefenderPose(scene, time) {
   const extend = phase * phase * (3 - 2 * phase);
   const release = Math.max(0, Math.min(1, (time - touch - .10) / .7));
   return { target: worldPoint(scene, target), reach: extend * (1 - release * release * (3 - 2 * release)) };
+}
+
+export function sampleReceiverPose(scene, time) {
+  const touch = scene.touchTime, target = sampleLocalBall(scene,touch);
+  target[scene.doubleTouch ? 'x' : 'z'] += Math.min(.6,Math.max(0,touch-time)*(scene.doubleTouch ? 4 : 3));
+  const u = Math.max(0,Math.min(1,(time-touch+.35)/.35));
+  const extend = u*u*(3-2*u);
+  const r = Math.max(0,Math.min(1,(time-touch-.1)/.7));
+  return {target:worldPoint(scene,target),reach:extend*(scene.exitKind==='player' ? 1 : 1-r*r*(3-2*r))};
 }

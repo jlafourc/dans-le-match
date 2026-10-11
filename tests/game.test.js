@@ -15,7 +15,7 @@ test('les six scènes suivent la règle du dernier toucher', () => {
 });
 
 test('le ballon ne sort pas simplement en franchissant la ligne en l’air', () => {
-  for (const scene of scenarios) {
+  for (const scene of scenarios.filter(s=>s.exitKind!=='player')) {
     const air = sampleBall(scene, scene.exitTime - 0.15);
     assert.ok(Math.abs(air.x) > 7.5);
     assert.ok(air.y > 0.12);

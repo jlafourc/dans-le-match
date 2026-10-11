@@ -81,7 +81,7 @@ test('le ralenti fait une pause sur la tentative manquée entre le dernier touch
   assert.equal(typeof reviewMoments,'function');
   for(const scene of scenarios) {
     const moments=reviewMoments(scene);
-    assert.deepEqual(moments.map(m=>m.time),scene.attempted ? [scene.touchTime,scene.interceptTime,scene.exitTime] : [scene.touchTime,scene.exitTime]);
+    assert.deepEqual(moments.map(m=>m.time),scene.attempted ? [scene.touchTime,scene.interceptTime,scene.exitTime] : scene.doubleTouch ? [scene.firstTouchTime,scene.touchTime,scene.exitTime] : [...new Set([scene.touchTime,scene.exitTime])]);
     assert.ok(moments.every(m=>m.hold>=1.5));
   }
 });

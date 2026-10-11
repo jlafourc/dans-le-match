@@ -36,7 +36,7 @@ Ouvrir alors `http://localhost:4173/dans-le-match/`. Les QR de test sur le rése
 
 ## Jouer
 
-Six situations 3D : trois défis d’initiation (sortie directe d’une passe bleue, déviation rouge, déviation bleue), puis trois défis d’entraînement (passe rouge depuis la touche opposée, déviation dans une autre zone et interception rouge manquée sur une passe bleue). La caméra est à hauteur d'arbitre, hors de la ligne de touche. Regarder l'action avant de choisir l'équipe qui bénéficie de la remise en jeu. La lecture peut être mise en pause et reprise. Après la décision, le ralenti reprend la même chronologie avec un zoom sur la main et une pause sur le dernier toucher, puis sur la sortie. Les boutons « Dernier toucher » et « Sortie » permettent aussi de conserver ces moments en arrêt sur image. Dans la tentative manquée, le bouton « Interception » montre l’écart entre les doigts et le ballon ; le ralenti s’y arrête également.
+Six situations 3D : trois défis d’initiation (sortie directe d’une passe bleue, déviation rouge, déviation bleue), puis trois défis d’entraînement (réception par un joueur avec le pied sur la ligne, deux contacts successifs bleu puis rouge et interception rouge manquée sur une passe bleue). La caméra est à hauteur d'arbitre, hors de la ligne de touche. Regarder l'action avant de choisir l'équipe qui bénéficie de la remise en jeu. La lecture peut être mise en pause et reprise. Après la décision, le ralenti reprend la même chronologie avec un zoom sur la main et une pause sur le dernier toucher, puis sur la sortie. Le bouton « Premier toucher » distingue les deux contacts du cinquième défi ; « Appuis sur la ligne » rapproche la caméra des pieds dans le quatrième. Les boutons « Dernier toucher » et « Sortie » permettent aussi de conserver ces moments en arrêt sur image. Dans la tentative manquée, le bouton « Interception » montre l’écart entre les doigts et le ballon ; le ralenti s’y arrête également.
 
 Après une décision correcte, deux exercices animés apprennent les gestes de l’arbitre : arrêt du chronomètre avec la paume ouverte, puis indication de la direction du jeu à partir d’un schéma des paniers. Une erreur explique la différence et permet un nouvel essai. Une démonstration de face enchaîne les deux gestes et invite à les reproduire physiquement. La reconnaissance des gestes est validée séparément des étoiles ; les trois défis d’initiation débloquent le badge « Le bon signal ». Les anciennes sauvegardes de décision sont conservées.
 
@@ -57,13 +57,13 @@ Une réussite rapporte 3 étoiles au premier essai, 2 au deuxième, 1 ensuite. S
 
 ## Sources et limites
 
-Voir [docs/sources.md](docs/sources.md). Les scènes s'appuient sur les articles 22.2, 23.1.2 et 23.2.1 du règlement officiel FIBA / FFBB 2026, version française 1.1 de septembre 2026, effectivement consulté page 34. Le jeu est un prototype indépendant ; il n'a pas fait l'objet d'une validation fédérale.
+Voir [docs/sources.md](docs/sources.md). Les scènes s'appuient sur les articles 22.2, 23.1.1–23.1.2 et 23.2.1–23.2.2 du règlement officiel FIBA / FFBB 2026, version française 1.1 de septembre 2026, effectivement consulté page 34. Le jeu est un prototype indépendant ; il n'a pas fait l'objet d'une validation fédérale.
 
 Les personnages et gestes sont une première mise en scène simplifiée. Le prototype n'est pas une simulation de match complet ; il reste à affiner les animations et à les faire relire par un formateur arbitre. Le test en viewport mobile dans Chrome ne remplace pas un essai sur iPhone et Android réels.
 
 ## Vérification effectuée
 
-- Tests Node : décision liée au dernier toucher, sortie uniquement au contact du sol extérieur, étoiles sans cumul, déblocages, badge, sauvegardes invalides, cadrage mobile, zoom après réponse, silhouette des mains et contact des doigts avec le ballon, réponses de gestuelle, nouveaux essais, badge de gestes, sauvegarde indépendante, poses et continuité des animations.
+- Tests Node : décision liée au dernier toucher, sortie au contact du sol extérieur ou d’un joueur hors des limites, étoiles sans cumul, déblocages, badge, sauvegardes invalides, cadrage mobile, zoom après réponse, silhouette des mains et contact des doigts avec le ballon, réponses de gestuelle, nouveaux essais, badge de gestes, sauvegarde indépendante, poses et continuité des animations.
 - Chrome : exercices de gestuelle à 390 px et 320 px, erreur dans chaque question et nouvel essai, trois validations, démonstration, navigation, badge distinct et persistance ; lecture avant réponse, mauvais choix, nouvel essai, score de 2 étoiles après erreur, deux déviations, ralenti visible avec annotation, fin du chapitre et badge.
 - Chrome : persistance après rechargement, absence de débordement horizontal aux dimensions mobiles, liens de sources et récompenses.
 - Chrome : pause et reprise sans déplacement de la barre de lecture, arrêts sur image du toucher et de la sortie, présence visuelle des mains en viewport mobile.
@@ -73,3 +73,5 @@ Les personnages et gestes sont une première mise en scène simplifiée. Le prot
 - Compilation Vite de production sous `/dans-le-match/`.
 
 Les plans du prototype sont dans `docs/plans/`.
+
+- Variété des défis 4–5 : réception avec pied sur la ligne, deux touchers successifs, contacts des doigts et absence de contact prématuré vérifiés ; 47 tests passent. Vérification visuelle mobile des deux contacts et du zoom sur les appuis.

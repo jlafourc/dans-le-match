@@ -14,7 +14,7 @@ const footWorld = (pose, side) => {
 
 test('le pas du défenseur se prépare puis se stabilise avant le toucher', () => {
   assert.equal(typeof motion.samplePlayerMotion, 'function');
-  for(const scene of scenarios.filter(s=>s.deflected || s.attempted)) {
+  for(const scene of scenarios.filter(s=>(s.deflected && !s.doubleTouch) || s.attempted)) {
     const start=motion.samplePlayerMotion(scene,'defender',0);
     const end=motion.samplePlayerMotion(scene,'defender',scene.interceptTime || scene.touchTime);
     assert.ok(dist(start.position,end.position)>.25 && dist(start.position,end.position)<.5);
@@ -68,7 +68,7 @@ function tipsAt(scene,time) {
 
 test('les doigts touchent au bon moment dans toutes les zones de déviation', () => {
   assert.equal(typeof motion.samplePlayerMotion, 'function');
-  for(const scene of scenarios.filter(s=>s.deflected)) {
+  for(const scene of scenarios.filter(s=>s.deflected && !s.doubleTouch)) {
     assert.ok(tipsAt(scene,scene.touchTime)<=.128, `Contact absent : ${scene.id}`);
     for(let t=scene.touchTime-.3;t<=scene.touchTime-.05;t+=.025) assert.ok(tipsAt(scene,t)>.14, `Toucher prématuré : ${scene.id}, ${t}`);
   }
@@ -85,7 +85,7 @@ test('la tentative manquée ne touche jamais le ballon et garde sa trajectoire',
 
 test('les défenseurs suivent la balle des yeux pendant leur pas et leur tentative', () => {
   assert.equal(typeof motion.samplePlayerMotion, 'function');
-  for(const scene of scenarios.filter(s=>s.deflected || s.attempted)) for(let t=0;t<=scene.duration;t+=.025) {
+  for(const scene of scenarios.filter(s=>(s.deflected && !s.doubleTouch) || s.attempted)) for(let t=0;t<=scene.duration;t+=.025) {
     const pose=motion.samplePlayerMotion(scene,'defender',t), ball=sampleBall(scene,t);
     const look=sampleGaze(pose.position,pose.yaw,ball), desired=Math.atan2(ball.x-pose.position.x,ball.z-pose.position.z);
     const error=Math.atan2(Math.sin(pose.yaw+look.yaw-desired),Math.cos(pose.yaw+look.yaw-desired));
