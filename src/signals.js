@@ -17,11 +17,11 @@ export function signalSteps(scene) {
     },
     { title: 'Dans quelle direction indiques-tu le jeu ?', help: `La remise en jeu revient aux ${scene.answer === 'blue' ? 'bleus' : 'rouges'}. Regarde vers quel panier ils attaquent sur le schéma.`, correct: direction,
       choices: [
-        { id: 'direction-left', label: 'Pointer vers la gauche' },
-        { id: 'direction-right', label: 'Pointer vers la droite' },
+        { id: 'direction-left', label: 'Index pointé vers la gauche' },
+        { id: 'direction-right', label: 'Index pointé vers la droite' },
         { id: 'stop-clock', label: 'Garder la paume en haut' },
       ],
-      explanation: `Tends le bras et pointe dans la direction du jeu, vers le panier attaqué par les ${scene.answer === 'blue' ? 'bleus' : 'rouges'}. Le bras est parallèle aux lignes de touche. Sur ce schéma, c’est ${scene.answer === 'blue' ? 'à droite' : 'à gauche'}.`,
+      explanation: `Tends le bras, garde l’index pointé et replie les autres doigts pour indiquer la direction du jeu, vers le panier attaqué par les ${scene.answer === 'blue' ? 'bleus' : 'rouges'}. Le bras est parallèle aux lignes de touche. Sur ce schéma, c’est ${scene.answer === 'blue' ? 'à droite' : 'à gauche'}.`,
     },
   ];
 }

@@ -145,3 +145,20 @@ test('une erreur reste affichée et une navigation annule l’enchaînement', co
   const cancel = scheduleSignalAdvance({ choice: 'correct', correct: true, done: false }, () => advances++);
   cancel(); context.mock.timers.tick(1000); assert.equal(advances, 0);
 });
+
+
+test('la direction pointe avec l’index voisin du pouce, les trois autres doigts repliés', () => {
+  for (const direction of ['direction-left', 'direction-right']) {
+    const svg = refereeSvg(direction);
+    const hand = svg.match(/<g[^>]+data-hand="point"[^>]*>([\s\S]*?)<\/g>/)?.[1];
+    assert.ok(hand, 'La main de direction doit être identifiable');
+    const fingers = [...hand.matchAll(/data-finger="(index|middle|ring|little|thumb)"[^>]+d="M([\d.-]+) ([\d.-]+)L([\d.-]+) ([\d.-]+)"/g)].map(m => ({ name: m[1], x: Number(m[2]), startY: Number(m[3]), endX: Number(m[4]), endY: Number(m[5]) }));
+    assert.equal(fingers.length, 5);
+    const index = fingers.find(f => f.name === 'index'), thumb = fingers.find(f => f.name === 'thumb');
+    assert.ok(index.endY < -22, 'L’index est clairement déployé');
+    assert.ok(index.x < fingers.find(f => f.name === 'middle').x, 'L’index se trouve du côté du pouce');
+    assert.ok(thumb.endX < index.x, 'Le pouce se distingue à côté de l’index');
+    assert.ok(thumb.endY > -9, 'Le pouce reste rabattu contre la main');
+    for (const finger of fingers.filter(f => ['middle', 'ring', 'little'].includes(f.name))) assert.ok(finger.endY > -12, `${finger.name} reste replié`);
+  }
+});

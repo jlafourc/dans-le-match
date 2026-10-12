@@ -34,3 +34,5 @@ Faire relire les scènes par un formateur arbitre : toucher réel et visible de 
 ## Gestes des sorties
 
 Annexe A du même règlement FFBB 2026, pages 77–78 : arrêt du chronomètre avec paume ouverte et direction du jeu avec bras parallèle aux lignes de touche. Texte et illustrations des signaux 1, 2 et 15 consultés le 10 octobre 2026. Article 47.2, page 71 : les arbitres sifflent lors d’une infraction ou d’une interruption nécessaire. Les animations SVG du jeu sont originales ; les illustrations officielles ne sont pas embarquées.
+
+Signal 15 relu le 12 octobre 2026 dans l’annexe A, page 78, illustration comprise : pointer en direction du jeu, bras parallèle aux lignes de touche. Correction de la main procédurale pour déployer l’index du côté du pouce, replier les autres doigts et afficher des mains gauche/droite symétriques.

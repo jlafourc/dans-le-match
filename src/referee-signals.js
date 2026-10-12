@@ -16,29 +16,30 @@ function elbow(shoulder, end, side) {
   const height = Math.sqrt(Math.max(0, 34 ** 2 - along ** 2));
   return { x: shoulder.x + dx * along - dy * height * side, y: shoulder.y + dy * along + dx * height * side };
 }
-function hand(point, mode, rotation, pointAmount = mode === 'point' ? 1 : 0) {
+function hand(point, mode, rotation, pointAmount = mode === 'point' ? 1 : 0, mirrored = false) {
   let fingers;
   if (mode === 'fist') fingers = '<rect x="-6.5" y="-13" width="13" height="11" rx="4"/><path d="M-4-10h8M-2-13v4M2-13v4" fill="none" stroke="#986243" stroke-width="1"/>';
   else {
     const mix = (a, b) => (a + (b - a) * pointAmount).toFixed(2);
-    const paths = [
-      `M-4-10L${mix(-5, -4)} ${mix(-20, -9)}`,
-      'M-1-11v-12',
-      `M2-11L${mix(3, 3)} ${mix(-22, -9)}`,
-      `M5-10L${mix(7, 5)} ${mix(-18, -7)}`,
-      `M-4-4L${mix(-11, -7)} ${mix(-10, -8)}`,
-    ].join('');
-    fingers = `<rect x="-5.5" y="-12" width="11" height="12" rx="3"/><path d="${paths}" fill="none" stroke-width="2.8" stroke-linecap="round"/>`;
+    const digit = (name, x, y, openX, openY, pointedX, pointedY) => `<path data-finger="${name}" d="M${x} ${y}L${mix(openX, pointedX)} ${mix(openY, pointedY)}" fill="none" stroke-width="2.8" stroke-linecap="round"/>`;
+    fingers = `<rect x="-5.5" y="-12" width="11" height="12" rx="3"/>`
+      + digit('index', -4, -10, -5, -20, -4, -27)
+      + digit('middle', -1, -11, -1, -23, 0, -8)
+      + digit('ring', 2, -11, 3, -22, 3, -8)
+      + digit('little', 5, -10, 7, -18, 5, -7)
+      + digit('thumb', -4, -4, -11, -10, -8, -5)
+      + `<path d="M-1-8h5M0-5h4" fill="none" stroke="#986243" stroke-width="1" opacity="${pointAmount}"/>`;
   }
-  return `<g transform="translate(${point.x} ${point.y}) rotate(${rotation})" fill="${skin}" stroke="${skin}">${fingers}</g>`;
+  return `<g data-hand="${mode}" transform="translate(${point.x} ${point.y}) rotate(${rotation})" fill="${skin}" stroke="${skin}"><g transform="scale(${mirrored ? -1 : 1} 1)">${fingers}</g></g>`;
 }
+
 export function refereeSvg(kind, progress = 1, crop = false, pose = sampleSignalPose(kind, progress)) {
   const arms = ['left', 'right'].map((side, i) => {
     const shoulder = { x: i ? 145 : 95, y: 111 }, end = pose[side];
     const joint = elbow(shoulder, end, i ? 1 : -1);
     const sleeve = { x: shoulder.x + (joint.x - shoulder.x) * .35, y: shoulder.y + (joint.y - shoulder.y) * .35 };
     return line(shoulder, joint, skin, 10) + line(joint, end, skin, 8) + line(shoulder, sleeve, '#657478', 14)
-      + hand(end, pose.active === side ? pose.hand : 'open', pose.hands?.[side].rotation ?? (pose.active === side ? pose.rotation : 180), pose.hands?.[side].pointAmount);
+      + hand(end, pose.active === side ? pose.hand : 'open', pose.hands?.[side].rotation ?? (pose.active === side ? pose.rotation : 180), pose.hands?.[side].pointAmount, side === 'left');
   }).join('');
   return `<svg class="referee-svg" viewBox="${crop ? '0 10 240 185' : '0 0 240 280'}" role="img" aria-label="${descriptions[kind]}">
     <ellipse cx="120" cy="260" rx="40" ry="6" fill="#26383c12"/>
